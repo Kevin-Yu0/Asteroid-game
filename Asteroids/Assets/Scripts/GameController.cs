@@ -1,3 +1,4 @@
+using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -6,19 +7,25 @@ public class GameController : MonoBehaviour
 {
     public GameObject AsteroidPrefab;
     public GameObject SpaceShipPrefab;
+    public GameObject[] playerLives;
     public float timedied;
     private GameObject gameOverSign;
+    private GameObject levelClearedSign;
     private GameObject spaceship;
-    private int numAsteroids = 5;
+    private int myScore = 0;
+    private Score scoreText;
+    public int numAsteroids = 1;
     private float minCollisionDistance = 1.0f;
     private int maxLives = 3;
-    private int lives;
+    [SerializeField] private int lives;
     private float respawnTime = 3f;
 
     private void Awake()
     {
         lives = maxLives;
+        scoreText = FindFirstObjectByType<Score>();
         gameOverSign = GameObject.Find("GameOver"); // Find the GameOverSign in the scene
+        levelClearedSign = GameObject.Find("LevelCleared"); // Find the LevelClearedSign in the scene, if any
         InitializeLevel();
     }
 
@@ -32,7 +39,24 @@ public class GameController : MonoBehaviour
         SpawnSpaceShip();
         Assert.IsNotNull(gameOverSign);
         gameOverSign.SetActive(false); // Hide the GameOverSign at the start of the game
+
+        Assert.IsNotNull(levelClearedSign);
+        levelClearedSign.SetActive(false); 
+
+        StartCoroutine(EnsureScoreInitialized()); // Ensure the score is initialized
+
     }
+
+    private IEnumerator EnsureScoreInitialized()
+{
+    while (scoreText == null)
+    {
+        scoreText = FindAnyObjectByType<Score>();
+        yield return null; // Wait a frame
+    }
+
+    scoreText.UpdateMyScore(myScore);
+}
 
     private void SpawnAsteroid()
     {
@@ -42,6 +66,7 @@ public class GameController : MonoBehaviour
         {
             newAsteroid = Instantiate(AsteroidPrefab);
             newAsteroid.gameObject.tag = "Asteroid";
+            newAsteroid.GetComponent<Asteroid>().SetGameController(this); // Set the reference to the GameController in the Asteroid script
             valid = CheckObjectCollision(newAsteroid);
         } while (valid == false); // Loop until a valid position is found
     }
@@ -73,12 +98,21 @@ public class GameController : MonoBehaviour
         {
             newSpaceShip = Instantiate(SpaceShipPrefab); // Create a new spaceship instance
             newSpaceShip.transform.position = new Vector3(Random.Range(-9f, 9f), Random.Range(-5f, 5f), 0);
-            newSpaceShip.gameObject.tag = "Player"; // Set the tag for the spaceship
             valid = CheckObjectCollision(newSpaceShip); // Check for collisions with existing objects
         } while (!valid);
         spaceship = GameObject.FindGameObjectWithTag("Player"); // Find the spaceship in the scene after spawning it
         spaceship.GetComponent<Spaceship>().SetGameController(this); // Set the reference to the GameController in the Spaceship script
         lives--;
+    }
+
+    IEnumerator delay(float seconds)
+    {
+       yield return new WaitForSeconds(seconds); 
+    }
+
+    public void IncreaseScore(){
+        myScore += 10;
+        scoreText.UpdateMyScore(myScore);
     }
 
     void Start()
@@ -92,17 +126,23 @@ public class GameController : MonoBehaviour
         {
             if (lives > 0)
             {
-                if(Time.time - timedied < respawnTime)
+                if(Time.time - timedied > respawnTime)
                 {
-                    return; // Wait for the respawn time before respawning the spaceship
+                    SpawnSpaceShip();
+                    StartCoroutine(delay(0.5f)); 
+                    Destroy(playerLives[lives+1]);
+
                 }
-                // Respawn the spaceship if it was destroyed and lives are available
-                SpawnSpaceShip();
             }
             else
             {
+                Destroy(playerLives[0]); 
                 gameOverSign.SetActive(true); // Show the GameOverSign if no lives left
             }
+        }
+        if (numAsteroids==0)
+        {
+            levelClearedSign.SetActive(true); // Show the LevelClearedSign
         }
     }
 }

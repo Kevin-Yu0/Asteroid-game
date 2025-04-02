@@ -6,6 +6,7 @@ public class Asteroid : MonoBehaviour
 {
     public GameObject asteroidPreFab;
     public GameObject explosionPrefab;
+    private GameController gameController;
     private float maxX = 9f;
     private float maxY = 5f;
     private float maxSpeed = 2f;
@@ -54,6 +55,11 @@ public class Asteroid : MonoBehaviour
         }
     }
 
+    public void SetGameController(GameController controller)
+    {
+        gameController = controller; // Set the reference to the GameController if needed
+    }
+
     private void Die(){
         GameObject explosion = Instantiate(explosionPrefab, transform.position, Quaternion.identity); // Create an explosion effect at the asteroid's position
         ParticleSystem explosionParticles = explosion.GetComponent<ParticleSystem>();
@@ -66,6 +72,7 @@ public class Asteroid : MonoBehaviour
             spawnChildAsteroids();
         }
         Destroy(gameObject);
+        gameController.numAsteroids--; 
     }
 
     private void spawnChildAsteroids(){
@@ -87,16 +94,17 @@ public class Asteroid : MonoBehaviour
             childRb.mass = rb.mass/8;
             childRb.AddForce((Vector3) newDirection[i]*childOffset);
             asteroidHandle.childOffset = childOffset/2;
-            asteroidHandle.health = health/2;
-
-            
+            asteroidHandle.health = health/2; 
+            newAsteroid.GetComponent<Asteroid>().SetGameController(gameController); // Set the reference to the GameController for the new asteroid
         }
+        gameController.numAsteroids += 4; 
     }
 
     public void takeDamage(){
         health --;
         if (health <= 0){
             Die();
+            gameController.IncreaseScore();
         }
     }
 }
